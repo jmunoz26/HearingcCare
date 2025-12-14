@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Script de verificación de seguridad antes de commit
+
+echo "🔍 VERIFICACIÓN DE SEGURIDAD"
+echo "=============================="
+echo ""
+
+# 1. Verificar archivos sensibles
+echo "1. Verificando archivos sensibles NO rastreados:"
+SENSITIVE_FILES=$(git ls-files 2>/dev/null | grep -E "(master\.key|\.env$|/secrets$)" || true)
+if [ -n "$SENSITIVE_FILES" ]; then
+  echo "   ❌ ALERTA: Archivos sensibles encontrados en git!"
+  echo "$SENSITIVE_FILES"
+  exit 1
+else
+  echo "   ✅ No hay archivos sensibles rastreados"
+fi
+echo ""
+
+# 2. Verificar master.key
+echo "2. Verificando que master.key existe pero está ignorado:"
+if [ -f config/master.key ]; then
+  echo "   ✅ config/master.key existe"
+  if git check-ignore config/master.key > /dev/null 2>&1; then
+    echo "   ✅ config/master.key está en .gitignore"
+  else
+    echo "   ❌ ALERTA: config/master.key NO está ignorado!"
+    exit 1
+  fi
+else
+  echo "   ⚠️  config/master.key no existe"
+fi
+echo ""
+
+# 3. Verificar .env.example
+echo "3. Verificando .env.example:"
+if [ -f .env.example ]; then
+  echo "   ✅ .env.example existe (plantilla para otros devs)"
+else
+  echo "   ⚠️  .env.example no existe (recomendado crearlo)"
+fi
+echo ""
+
+# 4. Verificar database.yml
+echo "4. Verificando database.yml:"
+if grep -E "password:\s*['\"]" config/database.yml > /dev/null 2>&1; then
+  echo "   ❌ ALERTA: Contraseña hardcodeada encontrada!"
+  exit 1
+else
+  echo "   ✅ No hay contraseñas hardcodeadas"
+fi
+echo ""
+
+# 5. Mostrar archivos que se van a subir
+echo "5. Archivos que se van a subir:"
+git status --short 2>/dev/null | head -20 || echo "   No es un repositorio git"
+echo ""
+
+echo "=============================="
+echo "✅ Verificación completada - SEGURO PARA COMMIT"
+echo "=============================="
+
